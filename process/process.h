@@ -1,40 +1,41 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#define MAX_PROCESSES 8
-#define PROCESS_STACK_SIZE 4096
+#define MAX_PROCESSES 32
+#define PROCESS_NAME_LEN 16
+#define PROCESS_STACK_SIZE 1024  /* 1 KB stack per process */
 
 typedef enum {
-    PROCESS_CREATED,
+    PROCESS_TERMINATED = 0,
     PROCESS_READY,
     PROCESS_RUNNING,
-    PROCESS_BLOCKED,
-    PROCESS_TERMINATED
+    PROCESS_BLOCKED
 } ProcessState;
 
 typedef struct {
     int pid;
-    char name[32];
+    char name[PROCESS_NAME_LEN];
     ProcessState state;
-    unsigned int esp;        // Stack pointer
-    unsigned int stack[PROCESS_STACK_SIZE];
-    void (*entry_point)();   // Function to execute
+    unsigned int esp;                 /* saved stack pointer (not full context) */
+    unsigned int stack[PROCESS_STACK_SIZE / 4]; /* simple per-process stack */
+    void (*entry_point)(void);
     int priority;
-    unsigned int sleep_until; // For sleep functionality
+    unsigned int sleep_until;
 } Process;
 
-// Process management functions
-void init_process_manager();
-int create_process(const char* name, void (*entry)());
+/* manager API */
+void init_process_manager(void);
+int create_process(const char *name, void (*entry)());
 void terminate_process(int pid);
-void schedule();
-void yield();
-void sleep(unsigned int ticks);
+void schedule(void);
+void yield(void);
+void sleep_ticks(unsigned int ticks);
 void wakeup_process(int pid);
-void print_processes();
+void process_timer_tick(void);
 
-// Getters
-Process* get_current_process();
-int get_running_process_count();
+/* info */
+void print_processes(void);
+Process* get_current_process(void);
+int get_running_process_count(void);
 
 #endif

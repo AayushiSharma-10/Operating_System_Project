@@ -1,96 +1,68 @@
-[BITS 16]
-[ORG 0x8000]
+; boot/stage2.template.asm
+
+%define __KSECS__ 10  ; Replace 10 by actual number of sectors your kernel image size covers
+
+org 0x7E00
+bits 16
+
+STAGE2_SECTORS equ 1
+KERNEL_SECTORS equ __KSECS__
+KERNEL_LBA     equ 1 + STAGE2_SECTORS   ; = 2
 
 start:
     cli
     xor ax, ax
     mov ds, ax
     mov es, ax
-    ; -------------------------
-    ; Print message
-    ; -------------------------
-    mov si, msg
-.print:
-    lodsb
-    cmp al, 0
-    je load_kernel
-    mov ah, 0x0E
-    int 0x10
-    jmp .print
+    sti
 
-; -------------------------
-; Load kernel
-; -------------------------
-load_kernel:
+    mov si, msg_load
+    call print
+
+    ; Destination: ES:BX = 0x1000:0x0000
     mov ax, 0x1000
     mov es, ax
     xor bx, bx
 
-    mov dl, 0          ; drive 0
-    mov dh, 0          ; head 0
-    mov ch, 0          ; track 0
-    mov byte [sector_num], 1   ; starting sector
-    mov cx, 20                 ; number of sectors to read
+    ; prepare DAP for kernel read at label 'dap'
+    lea si, [dap]                ; offset of DAP (DS is 0)
+    mov byte [si + 0], 16       ; DAP size
+    mov byte [si + 1], 0        ; reserved
+    mov word [si + 2], KERNEL_SECTORS
+    mov word [si + 4], 0x0000   ; buffer offset (0x0000)
+    mov word [si + 6], 0x1000   ; buffer segment (0x1000)
+    mov dword [si + 8], KERNEL_LBA
+    mov dword [si + 12], 0
 
-load_loop:
-    mov ah, 0x02        ; BIOS read sector
-    mov al, 1           ; read 1 sector
-    mov cl, [sector_num]  ; 8-bit sector number
+    ; call BIOS extended read using DL preserved from stage1
+    mov ah, 0x42
     int 0x13
-    jc fail
+    jc disk_err
 
-    add bx, 512
-    cmp bx, 0x0000
-    jne no_seg
+    mov si, msg_ok
+    call print
 
-    mov ax, es
-    add ax, 1
-    mov es, ax
+    jmp 0x1000:0x0000
 
-no_seg:
-    inc byte [sector_num]
-    loop load_loop
-
-; -------------------------
-; Enable protected mode
-; -------------------------
-cli
-lgdt [gdt_desc]
-mov eax, cr0
-or eax, 1
-mov cr0, eax
-jmp 0x08:pm_entry
-
-[BITS 32]
-pm_entry:
-    mov ax, 0x10
-    mov ds, ax
-    mov ss, ax
-    mov es, ax
-    mov esp, 0x90000
-    jmp 0x08:0x00100000
-
-fail:
-    mov si, err
-.fail_loop:
+print:
     lodsb
     or al, al
-    jz $
+    jz .ret
     mov ah, 0x0E
     int 0x10
-    jmp .fail_loop
+    jmp print
+.ret:
+    ret
 
-gdt:
-dq 0
-dq 0x00CF9A000000FFFF
-dq 0x00CF92000000FFFF
+disk_err:
+    mov si, msg_err
+    call print
+    hlt
 
-gdt_desc:
-dw gdt_desc - gdt - 1
-dd gdt
+msg_load db "Stage2: loading kernel...",0
+msg_ok   db "Kernel loaded.",0
+msg_err  db "Disk read error!",0
 
-sector_num db 0
-msg db 'Stage2 running...',0
-err db 'Disk read error!',0
-
-times 510-($-$$) db 0
+align 4
+dap: times 16 db 0
+times 512 - ($ - $$) db 0

@@ -1,44 +1,90 @@
 #include "io.h"
+#include "kprintf.h"
+#include "string.h"
 
-#define VIDEO_MEMORY 0xB8000
-#define VGA_WIDTH 80
-#define VGA_HEIGHT 25
-
-static uint16_t *vga_buffer = (uint16_t *)VIDEO_MEMORY;
-static int cursor_row = 0;
-static int cursor_col = 0;
-
-// --- Low-level I/O port output ---
-void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
-// --- Move the cursor on screen ---
-static void move_cursor() {
-    uint16_t pos = cursor_row * VGA_WIDTH + cursor_col;
-    outb(0x3D4, 0x0F);
-    outb(0x3D5, (uint8_t)(pos & 0xFF));
-    outb(0x3D4, 0x0E);
-    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
-}
-
-// --- Print a single character to screen ---
-void putc(char c) {
-    if (c == '\n') {
-        cursor_row++;
-        cursor_col = 0;
-    } else {
-        vga_buffer[cursor_row * VGA_WIDTH + cursor_col] = (0x07 << 8) | c;
-        cursor_col++;
-        if (cursor_col >= VGA_WIDTH) {
-            cursor_col = 0;
-            cursor_row++;
+void gets(char *buf) {
+    int pos = 0;
+    char c;
+    while (1) {
+        c = io_getchar(); // You must have this implemented to get input char
+        if (c == '\n' || c == '\r') {
+            buf[pos] = 0;
+            kprintf("\n");
+            return;
+        }
+        if (c == 8 || c == 127) { // Backspace handling
+            if (pos > 0) {
+                pos--;
+                kprintf("\b \b");
+            }
+        } else {
+            buf[pos++] = c;
+            kprintf("%c", c);
         }
     }
+}
 
-    if (cursor_row >= VGA_HEIGHT) {
-        cursor_row = 0;  // simple reset (no scrolling)
+// Low-level BIOS keyboard read
+char io_getchar() {
+    char c;
+    asm volatile(
+        "mov $0, %%ah\n"
+        "int $0x16\n"
+        "mov %%al, %0"
+        : "=r"(c)
+        :
+        : "ax"
+    );
+    return c;
+}
+
+// Polling PS/2 keyboard
+char getc() {
+    char c = 0;
+    while (1) {
+        unsigned char status;
+        asm volatile("inb $0x64, %0" : "=a"(status));
+
+        if (status & 1) {
+            asm volatile("inb $0x60, %0" : "=a"(c));
+            return c;
+        }
     }
+}
 
-    move_cursor();
+// Read a line from keyboard (like gets)
+void io_readline(char *buf, int max) {
+    int i = 0;
+    while (i < max - 1) {
+        char c = io_getchar();
+        if (c == '\r' || c == '\n') {
+            kprintf("\n");
+            break;
+        }
+        if (c == '\b') {
+            if (i > 0) {
+                i--;
+                kprintf("\b \b");
+            }
+            continue;
+        }
+        buf[i++] = c;
+        kprintf("%c", c);
+    }
+    buf[i] = 0;
+}
+
+// Clears the screen using BIOS interrupt
+void io_clearscreen() {
+    asm volatile(
+        "mov $0x06, %%ah\n"      // scroll up
+        "mov $0, %%al\n"         // clear entire window
+        "mov $0, %%cx\n"
+        "mov $0x184f, %%dx\n"
+        "mov $0x07, %%bh\n"      // normal attribute
+        "int $0x10"
+        :
+        :
+        : "ax", "bx", "cx", "dx"
+    );
 }

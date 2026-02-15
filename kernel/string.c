@@ -1,13 +1,27 @@
-int strcmp(const char *s1, const char *s2) {
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
+#include "string.h"
+
+int strcmp(const char *a, const char *b) {
+    while (*a && (*a == *b)) {
+        a++; b++;
     }
-    return (const unsigned char)s1 - (const unsigned char)s2;
+    return *(unsigned char*)a - *(unsigned char*)b;
 }
 
-char* strcpy(char *dest, const char *src) {
-    char *r = dest;
+void strcpy(char *dest, const char *src) {
     while ((*dest++ = *src++));
-    return r;
+}
+
+void strncpy(char *dest, const char *src, int n) {
+    for (int i = 0; i < n; i++) {
+        if (src[i])
+            dest[i] = src[i];
+        else
+            dest[i] = 0;
+    }
+}
+
+int strlen(const char *s) {
+    int len = 0;
+    while (s[len]) len++;
+    return len;
 }

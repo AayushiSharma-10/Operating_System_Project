@@ -1,27 +1,27 @@
-#include "fs.h"
+#include "io.h"
+#include "string.h"
 #include "kprintf.h"
+#include "fs.h"
+#include "cli.h"
+#include "commands.h"
 
 void kmain() {
-    kprintf("=== Mini OS: File Management Demo ===\n");
+    // --- Set up a proper stack ---
+    asm volatile(
+        ".intel_syntax noprefix\n"
+        "cli\n"
+        "xor ax, ax\n"
+        "mov ss, ax\n"
+        "mov sp, 0x7C00\n"
+        "sti\n"
+        ".att_syntax prefix\n"
+    );
 
-    // Create files
-    create_file("file1.txt");
-    create_file("file2.txt");
+    kprintf("=== HumeOS Kernel Loaded ===\n");
+    kprintf("Type 'help' for commands.\n\n");
+    kprintf("Starting CLI...\n");
 
-    // Write data
-    write_file("file1.txt", "Hello, World!");
-    write_file("file2.txt", "Welcome to Hume OS");
+    cli_run();   // start CLI shell
 
-    // Read files
-    read_file("file1.txt");
-    read_file("file2.txt");
-
-    // List files
-    list_files();
-
-    // Delete one file
-    delete_file("file1.txt");
-
-    // List again
-    list_files();
+    for(;;);     // infinite loop (should never reach here)
 }

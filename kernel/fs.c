@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "kprintf.h"
 #include "string.h"
+#include <stddef.h>
 
 #define MAX_FILES 16
 #define MAX_FILENAME 32
@@ -54,11 +55,11 @@ void write_file(const char *name, const char *data) {
 }
 
 // Read file contents
-void read_file(const char *name) {
+char* read_file(const char *name) {
     for (int i = 0; i < MAX_FILES; i++) {
         if (file_table[i].in_use && strcmp(file_table[i].name, name) == 0) {
             kprintf("Contents of '%s': %s\n", name, file_table[i].data);
-            return;
+            return NULL;
         }
     }
     kprintf("Error: File '%s' not found\n", name);
