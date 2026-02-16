@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MiniOS Elderly Mode
+Comment=GUI wrapper for MiniOS shell
+Exec=python3 /home/YOURUSER/MiniOS/gui/elderly_gui.py /home/YOURUSER/MiniOS/shell
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;
